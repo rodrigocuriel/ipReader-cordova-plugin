@@ -56,7 +56,7 @@ BOOL showLogs=NO;
 {
     NSString *parameters = [NSString stringWithFormat: @"%d, %d, '%@', '%@', '%@', '%@', %d", encryption, tracks, data, track1masked, track2masked, track3, source];
     NSString *jsStatement = [NSString stringWithFormat:@"ipReader.onMagneticCardEncryptedData(%@);", parameters];
-    [self displayAlert:@"magneticCardEncryptedData" message:jsStatement];
+//    [self displayAlert:@"magneticCardEncryptedData" message:jsStatement];
     [self.webView stringByEvaluatingJavaScriptFromString:jsStatement];
 }
 

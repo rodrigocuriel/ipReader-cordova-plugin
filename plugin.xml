@@ -23,8 +23,7 @@
             </feature>
         </config-file>
 
-        <config-file target="*-Info.plist" parent="/*">
-            <key>UISupportedExternalAccessoryProtocols</key>
+        <config-file target="*-Info.plist" parent="UISupportedExternalAccessoryProtocols">
             <array>
                 <string>com.datecs.pinpad</string>
                 <string>com.datecs.iserial.communication</string>

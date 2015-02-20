@@ -23,6 +23,23 @@
             </feature>
         </config-file>
 
+        <config-file target="*-Info.plist" parent="/*">
+            <key>UISupportedExternalAccessoryProtocols</key>
+            <array>
+                <string>com.datecs.pinpad</string>
+                <string>com.datecs.iserial.communication</string>
+                <string>com.datecs.linea.pro.msr</string>
+                <string>com.datecs.linea.pro.bar</string>
+            </array>
+        </config-file>
+
+        <framework src="ExternalAccessory.framework" />
+        <framework src="MediaPlayer.framework" />
+        <framework src="AudioToolbox.framework" />
+
+        <source-file src="src/ios/libdtdev.a" framework="true" />
+        <header-file src="src/ios/DTDevices.h" />
+
         <header-file src="src/ios/CDVipReader.h" />
         <source-file src="src/ios/CDVipReader.m" />
     </platform>

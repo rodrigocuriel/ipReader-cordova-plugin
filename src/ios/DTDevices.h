@@ -50,6 +50,9 @@
 
 #define pinGetPINBlockUsingDUKPT ppadGetPINBlockUsingDUKPT
 
+#define iso14ATranscieve iso14Transceive
+#define iso14BTranscieve iso14Transceive
+
 /**
  * Device type
  */
@@ -674,6 +677,28 @@ typedef enum {
 #define EMSR_EMULATED 1
 
 /**
+ Track 1 data will be returned
+ */
+#define MS_TRACK_1 0x01
+/**
+ Track 1 data will be returned
+ */
+#define MS_TRACK_2 0x02
+/**
+ Track 1 data will be returned
+ */
+#define MS_TRACK_3 0x04
+/**
+ JIS track data will be returned
+ */
+#define MS_TRACK_JIS 0x20
+/**
+ JIS track data will be returned
+ */
+#define MS_TRACK_ALL (MS_TRACK_1|MS_TRACK_2|MS_TRACK_3|MS_TRACK_JIS)
+
+
+/**
  Source of the track data is magnetic card
  */
 #define CARD_TYPE_MAGNETIC 0
@@ -1187,6 +1212,14 @@ typedef enum
  ISO15693 card number of blocks
  */
 @property (assign) int nBlocks;
+/**
+ FeliCa PMm
+ */
+@property (copy) NSData *felicaPMm;
+/**
+ FeliCa Request Data
+ */
+@property (copy) NSData *felicaRequestData;
 
 /**
  Card index used to access the card from the SDK API
@@ -3765,6 +3798,27 @@ typedef enum
  **/
 -(EMSRKeysInfo *)emsrGetKeysInfo:(NSError **)error;
 
+/**
+ Sets encrypted magnetic head card data mode. This setting is not persistent and is best to configure it upon connect. The default mode is to return all tracks read, including JIS and add track identifiers.
+ @param mode magnetic card data mode:
+ <table>
+ <tr><td>MS_PROCESSED_CARD_DATA</td><td>Card data will be processed and will be returned via magneticCardEncryptedData delegate</td></tr>
+ <tr><td>MS_RAW_CARD_DATA</td><td>Card data will not be processed and will be returned via magneticCardRawData delegate</td></tr>
+ </table>
+ @param tracks which card tracks to be read, any combination of the following
+ <table>
+ <tr><td>MS_TRACK_1</td><td>Track 1 data will be returned</td></tr>
+ <tr><td>MS_TRACK_2</td><td>Track 2 data will be returned</td></tr>
+ <tr><td>MS_TRACK_3</td><td>Track 3 data will be returned</td></tr>
+ <tr><td>MS_TRACK_JIS</td><td>JIS track data will be returned</td></tr>
+ <tr><td>MS_TRACK_ALL (default)</td><td>All track data, including JUS data will be returned</td></tr>
+ </table>
+ @param trackIdentifiers if true (default), the track data will be prefixed by 0xF1 for track1, 0xF2 for track2, 0xF3 for track3 and 0xF5 for JIS track
+ @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
+ @return TRUE if function succeeded, FALSE otherwise
+ */
+-(BOOL)emsrSetCardDataMode:(int)mode tracks:(int)tracks trackIdentifiers:(BOOL)trackIdentifiers error:(NSError **)error;
+
 /**@}*/
 
 /*******************************************************************************
@@ -3998,9 +4052,35 @@ typedef enum
 /**
  ISO14443 Type A (Mifare) cards will be detected
  */
+#define RF_CHANNEL_ISO1443A 0x01
+/**
+ ISO14443 Type B cards will be detected
+ */
+#define RF_CHANNEL_ISO1443B 0x02
+/**
+ ISO15693 cards will be detected
+ */
+#define RF_CHANNEL_ISO15693 0x03
+/**
+ Felica cards will be detected.
+ */
+#define RF_CHANNEL_FELICA 0x04
+/**
+ ST SRI cards will be detected
+ */
+#define RF_CHANNEL_STSRI 0x05
+/**
+ PicoPass ISO15693 cards will be detected
+ */
+#define RF_CHANNEL_PICOPASS_ISO15 0x06
+
+
+/**
+ ISO14443 Type A (Mifare) cards will be detected
+ */
 #define CARD_SUPPORT_TYPE_A 0x0001
 /**
- ISO14443 Type B cards will be detected. Currently unsupported.
+ ISO14443 Type B cards will be detected.
  */
 #define CARD_SUPPORT_TYPE_B 0x0002
 /**
@@ -4024,17 +4104,17 @@ typedef enum
  */
 #define CARD_SUPPORT_STSRI 0x0040
 /**
- PicoPass ISO14443-A
+ PicoPass ISO14443-A cards will be detected
  */
 #define CARD_SUPPORT_PICOPASS_ISO14 0x0080
 /**
- PicoPass ISO15693
+ PicoPass ISO15693 cards will be detected
  */
 #define CARD_SUPPORT_PICOPASS_ISO15 0x0100
 
 /**
  Initializes and powers on the RF card reader module. Call this function before any other RF card functions. The module power consumption is highly optimized, so it can be left on for extended periods of time.
- @param supportedCards any combination of CARD_SUPPORT_* flags to mark which card types to be active. Enable only cards you actually plan to work with, this has high implication on power usage and detection speed.
+ @param supportedCards any combination of CARD_SUPPORT_* flags to mark which card types to be active. Enable only cards you actually plan to work with, this has high implication on power usage and detection speed. If you pass 0 as this parameter, the module will be enabled without scanning for cards, you can manually scan for card later with rfDetectCardOnChannel
  @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
  @return TRUE if function succeeded, FALSE otherwise
  */
@@ -4052,6 +4132,13 @@ typedef enum
  @return TRUE if function succeeded, FALSE otherwise
  */
 -(BOOL)rfRemoveCard:(int)cardIndex error:(NSError **)error;
+/**
+ Call this function to manually detect a card on specific channel. This function stops the automatic card polling, if it is enabled by calling rfInit with supportedCards parameter different from 0
+ @param channel the card channel to detect card on, one of RF_CARD_CHANNEL_* constants
+ @param additionalData optional card specific detection data
+ @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
+ @return detected card info if function succeeded, nil otherwise
+ */
 -(DTRFCardInfo *)rfDetectCardOnChannel:(int)channel additionalData:(NSData *)additionalData error:(NSError **)error;
 /**
  Authenticate mifare card block with direct key data. This is less secure method, as it requires the key to be present in the program, the prefered way is to store a key once in a secure environment and then authenticate using the stored key.
@@ -4204,23 +4291,23 @@ typedef enum
 -(NSData *)iso14APDU:(int)cardIndex cla:(uint8_t)cla ins:(uint8_t)ins p1:(uint8_t)p1 p2:(uint8_t)p2 data:(NSData *)data apduResult:(uint16_t *)apduResult error:(NSError **)error;
 
 /**
- Sends a command to ISO1443-A card
+ Executes APDU command on ISO1443 compatible card. The command supports both ISO14443-4 protocol and non-protocol cards. For the protocol activation you need to call iso14GetATS first
  @param cardIndex the index of the card as sent by rfCardDetected delegate call
  @param data command data
  @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
  @return command response data or nil if command failed
  */
--(NSData *)iso14ATranscieve:(int)cardIndex data:(NSData *)data error:(NSError **)error;
+-(NSData *)iso14Transceive:(int)cardIndex data:(NSData *)data error:(NSError **)error;
 
 /**
- Executes APDU command on ISO1443B compatible card (that includes ISO14A card working with B protocol). The card must be initialized with iso14GetATS first
+ Executes APDU command on ISO1443 compatible card. The command supports both ISO14443-4 protocol and non-protocol cards. For the protocol activation you need to call iso14GetATS first
  @param cardIndex the index of the card as sent by rfCardDetected delegate call
  @param data command data
- @param status upon successful execution, the status of the command, returned by the card will be stored here
+ @param status upon successful execution, the status of the command, returned by the card will be stored here. The status is meant as the first byte of the data, if you don't want it stripped out of the data, or the command you are sending does not send status byte, pass nil and the status byte will be ignored
  @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
  @return command response data or nil if command failed
  */
--(NSData *)iso14BTranscieve:(int)cardIndex data:(NSData *)data status:(uint8_t *)status error:(NSError **)error;
+-(NSData *)iso14Transceive:(int)cardIndex data:(NSData *)data status:(uint8_t *)status error:(NSError **)error;
 
 /**
  Sets polling parameters of FeliCa card. Call this function before rfInit!
@@ -4353,6 +4440,58 @@ typedef enum
  @return number of bytes actually written or 0 if an error occured
  */
 -(int)stSRIWrite:(int)cardIndex address:(int)address data:(NSData *)data error:(NSError **)error;
+
+/**
+ Performs desfire three step AES128 authentication with a key and returns session key as a result
+ @param cardIndex the index of the card as sent by rfCardDetected delegate call
+ @param key AES128 key to use for the authentication
+ @param keyIndex the index of the key to use for the authentication
+ @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
+ @return session key to use for subsequent operations or nil if function failed
+ */
+-(NSData *)dfAESAuthByFixedKey:(int)cardIndex key:(NSData *)key keyIndex:(int)keyIndex error:(NSError **)error;
+
+/**
+ Creates file in desfire card, refer to desfire documentation for te parameters
+ @param cardIndex the index of the card as sent by rfCardDetected delegate call
+ @param fileID the index of the file (0 based) to create
+ @param type file type, refer to desfire documentation
+ @param permissions permissions, refer to desfire documentation
+ @param size file size, refer to desfire documentation
+ @param isoID, optional iso file ID, refer to desfire documentation
+ @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
+ @return TRUE if function succeeded, FALSE otherwise
+ */
+-(BOOL)dfCreateFile:(int)cardIndex fileID:(int)fileID type:(uint8_t)type permissions:(uint16_t)permissions size:(uint32_t)size isoID:(int16_t)isoID error:(NSError **)error;
+
+/**
+ Writes data to a desfire file, an application needs to be selected
+ @param cardIndex the index of the card as sent by rfCardDetected delegate call
+ @param fileID the index of the file (0 based) to create
+ @param data the data to write
+ @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
+ @return TRUE if function succeeded, FALSE otherwise
+ */
+-(BOOL)dfWriteFile:(int)cardIndex fileID:(int)fileID data:(NSData *)data error:(NSError **)error;
+
+/**
+ Reads data froma a desfire file, an application needs to be selected
+ @param cardIndex the index of the card as sent by rfCardDetected delegate call
+ @param fileID the index of the file (0 based) to create
+ @param length the number of bytes to read from the file
+ @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
+ @return file data if function succeeded, nil otherwise
+ */
+-(NSData *)dfReadFile:(int)cardIndex fileID:(int)fileID length:(int)length error:(NSError **)error;
+
+/**
+ Selects desfire application
+ @param cardIndex the index of the card as sent by rfCardDetected delegate call
+ @param app the id of desfire application (3 bytes)
+ @param error pointer to NSError object, where error information is stored in case function fails. You can pass nil if you don't want that information
+ @return TRUE if function succeeded, FALSE otherwise
+ */
+-(BOOL)dfSelectApplication:(int)cardIndex app:(uint32_t)app error:(NSError **)error;
 
 
 -(NSData *)hidGetVersionInfo:(NSError **)error;
@@ -6273,7 +6412,11 @@ typedef enum {
 /**
  No script loaded
  */
-#define EMV_NO_SCRIPT_LOADED 61
+#define EMV_NO_SCRIPT_LOADED 60
+/**
+ No script loaded
+ */
+#define EMV_TAG_NOT_FOUND 61
 /**
  Tag cannot be read
  */

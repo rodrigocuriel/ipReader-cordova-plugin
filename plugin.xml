@@ -8,8 +8,8 @@
     <description>IP (Infinite Peripheral) iOS plugin for PhoneGap</description>
     <license>Apache 2.0</license>
     <keywords>cordova,IP, Infinite Peripheral,iOS plugin, PhoneGap</keywords>
-    <repo></repo>
-    <issue></issue>
+    <repo>https://github.com/rodrigocuriel/ipReader-cordova-plugin.git</repo>
+    <issue>https://github.com/rodrigocuriel/ipReader-cordova-plugin/issues</issue>
 
     <js-module src="www/ipReader.js" name="ipReader">
         <clobbers target="ipReader" />
@@ -41,6 +41,9 @@
 
         <header-file src="src/ios/CDVipReader.h" />
         <source-file src="src/ios/CDVipReader.m" />
+
+        <header-file src="src/ios/NSDataCrypto.h" />
+        <source-file src="src/ios/NSDataCrypto.m" />
     </platform>
 
 </plugin>
